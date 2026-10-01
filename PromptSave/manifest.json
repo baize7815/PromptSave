@@ -1,0 +1,48 @@
+{
+  "manifest_version": 3,
+  "name": "PromptSave",
+  "version": "0.3.0",
+  "description": "本地优先的提示词与参考图收藏管理器。",
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "permissions": [
+    "storage",
+    "contextMenus",
+    "sidePanel",
+    "unlimitedStorage",
+    "clipboardRead",
+    "clipboardWrite",
+    "offscreen",
+    "activeTab",
+    "scripting",
+    "nativeMessaging"
+  ],
+  "host_permissions": [
+    "http://*/*",
+    "https://*/*"
+  ],
+  "optional_host_permissions": [
+    "file:///*"
+  ],
+  "action": {
+    "default_title": "PromptSave",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png"
+    }
+  },
+  "background": {
+    "service_worker": "background/service-worker.js",
+    "type": "module"
+  },
+  "side_panel": {
+    "default_path": "dashboard.html"
+  },
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self';"
+  }
+}

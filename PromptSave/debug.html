@@ -1,0 +1,12 @@
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>PromptSave 调试日志</title><link rel="icon" href="icons/icon32.png" type="image/png"><link rel="stylesheet" href="ui/styles.css"></head>
+<body><main class="app-shell">
+  <h1>调试日志</h1>
+  <p>遇到问题前开启记录，复现一次后导出。最多保留 200 条操作状态，不记录提示词、图片、网页地址或目录名称。</p>
+  <label><input id="debugEnabled" type="checkbox"> 开启记录</label>
+  <button id="exportDebug" type="button">导出日志</button>
+  <button id="clearDebug" type="button">关闭并清除日志</button>
+  <p id="debugStatus" role="status"></p>
+</main><script type="module" src="ui/debug.js"></script></body>
+</html>

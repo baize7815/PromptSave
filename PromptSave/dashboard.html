@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>PromptSave</title>
+  <link rel="icon" href="icons/icon32.png" type="image/png">
+  <link rel="stylesheet" href="ui/styles.css">
+</head>
+<body>
+  <div id="app" class="app-shell">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark"><img src="icons/icon48.png" alt=""></div>
+        <div>
+          <strong>PromptSave</strong>
+          <span id="storageHint" class="brand-sub">本地存储</span>
+        </div>
+      </div>
+      <div class="toolbar">
+        <button id="listenBtn" type="button" class="icon-btn listen-btn" title="监听剪贴板" data-i18n-title="listenClipboard"></button>
+        <button id="openDirectoryBtn" type="button" class="icon-btn" title="打开数据储存文件夹" data-i18n-title="openFolder"></button>
+        <button id="openFullBtn" class="icon-btn" title="完整页面" data-i18n-title="fullPage">↗</button>
+        <button id="refreshBtn" class="icon-btn" title="检查图片" data-i18n-title="checkImages">↻</button>
+        <button id="batchBtn" class="icon-btn" title="批量管理" data-i18n-title="bulkManagement">☑</button>
+        <button id="viewBtn" class="icon-btn" title="网格/列表" data-i18n-title="gridList">▦</button>
+        <button id="settingsBtn" class="icon-btn" title="设置" data-i18n-title="settings">⚙</button>
+        <button id="addBtn" class="primary-icon" title="添加提示词" data-i18n-title="addPrompt">＋</button>
+      </div>
+    </header>
+
+    <div id="notice" class="notice hidden" role="status"></div>
+
+    <section class="filters">
+      <div id="categoryBar" class="category-bar"></div>
+      <div class="filter-row">
+        <input id="searchInput" type="search" placeholder="搜索标题或提示词" data-i18n-placeholder="search">
+        <span class="select-chevron"><select id="sortSelect" aria-label="排序" data-i18n-aria-label="sortLabel">
+          <option value="created-desc">最新收藏</option>
+          <option value="created-asc">最早收藏</option>
+          <option value="modified-desc">最近修改</option>
+          <option value="title-asc">标题 A-Z</option>
+        </select></span>
+      </div>
+    </section>
+
+    <section id="batchBar" class="batch-bar hidden">
+      <label><input id="selectAllCheckbox" type="checkbox"> <span id="selectAllText">全选当前结果</span></label>
+      <span id="selectedCount">已选 0</span>
+      <span class="select-chevron"><select id="batchCategorySelect" aria-label="分类" data-i18n-aria-label="categoryLabel"></select></span>
+      <button id="batchMoveBtn">修改分类</button>
+      <button id="batchDeleteBtn" class="danger">删除</button>
+      <button id="batchCancelBtn">取消</button>
+    </section>
+
+    <main>
+      <div id="emptyState" class="empty-state hidden">
+        <strong id="emptyTitle">还没有收藏</strong>
+        <p id="emptyText" data-i18n="emptyHelp">选中文字或图片后右键收藏，或者点击右上角 ＋。</p>
+      </div>
+      <div id="cards" class="cards grid"></div>
+      <div class="page-navigation">
+        <button id="previousPageBtn" class="load-more hidden">上一页</button>
+        <button id="loadMoreBtn" class="load-more hidden">下一页</button>
+      </div>
+    </main>
+  </div>
+
+  <dialog id="itemDialog" class="modal">
+    <form id="itemForm" method="dialog">
+      <div class="modal-head">
+        <strong id="itemDialogTitle">编辑条目</strong>
+        <button id="closeItemBtn" type="button" class="icon-btn" aria-label="关闭" data-i18n-aria-label="close">×</button>
+      </div>
+      <label class="field">
+        <span data-i18n="titleLabel">标题</span>
+        <input id="itemTitleInput" maxlength="160" required>
+      </label>
+      <label class="field">
+        <span data-i18n="categoryLabel">分类</span>
+        <span class="select-chevron"><input id="itemCategoryInput" list="itemCategoryOptions" maxlength="60" autocomplete="off" placeholder="输入或选择分类（可新建）" data-i18n-placeholder="categoryPlaceholder"></span>
+        <datalist id="itemCategoryOptions"></datalist>
+      </label>
+      <div id="itemImageArea" class="image-editor">
+        <img id="itemImagePreview" class="hidden" alt="">
+        <div id="itemImageStatus" class="image-status">无图片</div>
+        <label class="file-button"><span data-i18n="chooseImage">选择图片</span><input id="itemImageInput" type="file" accept="image/*"></label>
+      </div>
+      <label class="field">
+        <span data-i18n="promptLabel">提示词</span>
+        <textarea id="itemPromptInput" rows="10"></textarea>
+      </label>
+      <div class="modal-actions">
+        <button id="copyFromDialogBtn" type="button">复制提示词</button>
+        <span class="spacer"></span>
+        <button type="button" id="cancelItemBtn">取消</button>
+        <button type="submit" class="primary">保存</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="viewDialog" class="modal view-modal">
+    <div class="modal-head">
+      <strong id="viewDialogTitle">查看条目</strong>
+      <button id="closeViewBtn" type="button" class="icon-btn" aria-label="关闭" data-i18n-aria-label="close">×</button>
+    </div>
+    <section class="view-section">
+      <h3 id="viewImageHeading">图片</h3>
+      <div class="view-image-box">
+        <img id="viewImage" class="hidden" alt="">
+        <span id="viewImageStatus" class="image-status">无图片</span>
+      </div>
+    </section>
+    <section class="view-section">
+      <h3 id="viewPromptHeading">完整提示词</h3>
+      <pre id="viewPrompt" class="view-prompt"></pre>
+    </section>
+    <div class="modal-actions">
+      <button id="copyViewBtn" type="button">复制提示词</button>
+      <span class="spacer"></span>
+      <button id="editViewBtn" type="button" class="primary">编辑</button>
+    </div>
+  </dialog>
+
+  <dialog id="settingsDialog" class="modal settings-modal">
+    <div class="modal-head">
+      <strong data-i18n="settingsHeading">设置</strong>
+      <button id="closeSettingsBtn" type="button" class="icon-btn" aria-label="关闭" data-i18n-aria-label="close">×</button>
+    </div>
+
+    <section class="settings-section">
+      <h3 data-i18n="storageHeading">存储</h3>
+      <div class="setting-line">
+        <div>
+          <strong id="storageModeLabel">本地存储</strong>
+          <p id="directoryStatusText">未设置目录</p>
+        </div>
+        <div class="stack-actions">
+          <button id="connectNativeBtn" type="button" data-i18n="nativeConnect">连接本地目录（免重复授权）</button>
+          <button id="chooseDirectoryBtn" data-i18n="chooseFolder">选择储存文件夹</button>
+          <button id="reauthorizeBtn" class="hidden" data-i18n="reauthorize">重新授权</button>
+          <button id="switchLocalBtn" class="hidden" data-i18n="switchLocal">迁移并切回本地</button>
+        </div>
+      </div>
+      <div id="pendingBox" class="pending-box hidden">
+        <span id="pendingText"></span>
+        <button id="retryPendingBtn" data-i18n="retryPending">重试待保存内容</button>
+      </div>
+      <p data-i18n="directoryPermissionHelp">已授权目录会直接复用；若浏览器再次询问，可选择“每次访问都允许”。长期授权由浏览器管理。</p>
+      <p data-i18n="nativeHelp">先双击项目 native/install.bat 注册桥接，再连接数据目录。原有目录请选同一个文件夹。连接后无需浏览器重复授权；工具栏文件夹按钮可打开 Windows 资源管理器。</p>
+      <div class="setting-line">
+        <div>
+          <strong data-i18n="clearLocalTitle">清除浏览器内部数据</strong>
+          <p class="muted" data-i18n="clearLocalHelp">删除浏览器内部存储中的提示词、图片和待保存内容，无法恢复；不会删除已连接数据文件夹中的文件。</p>
+        </div>
+        <div class="stack-actions">
+          <button id="clearLocalBtn" type="button" class="danger-ghost" data-i18n="clearLocal">清除本地储存</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="settings-section">
+      <h3 data-i18n="categoryManagement">分类管理</h3>
+      <div class="category-create">
+        <input id="newCategoryInput" maxlength="60" placeholder="新分类名称" data-i18n-placeholder="newCategoryPlaceholder">
+        <button id="newCategoryBtn" data-i18n="add">添加</button>
+      </div>
+      <div id="categoryManager" class="category-manager"></div>
+    </section>
+
+    <section class="settings-section">
+      <h3 data-i18n="displayHeading">显示</h3>
+      <label class="setting-inline"><span data-i18n="languageLabel">语言</span>
+        <span class="select-chevron"><select id="languageSelect">
+          <option value="zh">简体中文</option>
+          <option value="en">English</option>
+        </select></span>
+      </label>
+      <label class="setting-inline"><span data-i18n="themeLabel">主题</span>
+        <span class="select-chevron"><select id="themeSelect">
+          <option value="light" data-i18n="themeLight">明亮</option>
+          <option value="dark" data-i18n="themeDark">暗黑</option>
+        </select></span>
+      </label>
+      <button id="debugPageBtn" type="button" data-i18n="debugPage">打开调试页</button>
+    </section>
+
+    <section class="settings-section">
+      <h3 data-i18n="importExportHeading">导入导出</h3>
+      <p class="muted" data-i18n="exportNote">ZIP 默认包含回收站；缺失图片保留引用但不会伪造文件。</p>
+      <div class="import-export">
+        <button id="exportBtn" data-i18n="exportZip">导出 ZIP</button>
+        <span class="select-chevron"><select id="importMode" aria-label="导入方式">
+          <option value="merge" data-i18n="importMerge">导入并合并</option>
+          <option value="replace" data-i18n="importReplace">导入并替换</option>
+        </select></span>
+        <label class="file-button"><span data-i18n="chooseZip">选择 ZIP</span><input id="importFileInput" type="file" accept=".zip,application/zip"></label>
+      </div>
+    </section>
+  </dialog>
+
+  <dialog id="directoryChoiceDialog" class="modal small-modal">
+    <div class="modal-head"><strong data-i18n="directoryExists">目录已有数据</strong></div>
+    <p data-i18n="directoryChoiceHelp">这个文件夹里已经有 PromptSave 数据。请选择如何处理当前收藏。</p>
+    <div class="choice-grid">
+      <button id="useDirectoryDataBtn" data-i18n="useDataset">使用该数据集</button>
+      <button id="mergeDirectoryDataBtn" class="primary" data-i18n="mergeCurrent">合并当前收藏</button>
+      <button id="cancelDirectoryChoiceBtn" data-i18n="cancel">取消</button>
+    </div>
+  </dialog>
+
+  <script type="module" src="ui/app.js"></script>
+</body>
+</html>

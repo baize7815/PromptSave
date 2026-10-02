@@ -1,6 +1,6 @@
 # Chrome / Edge 实机烟测
 
-状态：**0.3.0 待 Chrome / Edge 实机验收**。自动化测试不能替代浏览器权限、侧边栏、File System Access、本地桥接和右键菜单的真实行为。
+状态：**0.4.0 待 Chrome / Edge 实机验收**。自动化测试不能替代浏览器权限、侧边栏、File System Access、本地桥接和右键菜单的真实行为。
 
 1. 在 Chrome 与 Edge 分别加载 `extension/`，确认无 Manifest / Service Worker 报错；点击扩展图标直接打开侧栏，↗ 可打开独立标签页。
 2. 不选择目录：右键收藏一段含换行、中文、英文、表情和特殊符号的文字，确认无需输入标题、标题取首个非空行前 24 个 Unicode 字符，正文及复制结果保持原样。

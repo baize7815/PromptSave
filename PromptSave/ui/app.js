@@ -112,6 +112,7 @@ const DICT = {
     useDataset: "使用该数据集",
     mergeCurrent: "合并当前收藏",
     fullPage: "完整页面",
+    githubRepo: "访问 GitHub 仓库",
     openFolder: "打开数据储存文件夹",
     nativeConnect: "连接本地目录（免重复授权）",
     nativeStorage: "本地桥接目录",
@@ -139,7 +140,11 @@ const DICT = {
     operationFailed: "操作失败",
     listenClipboard: "监听剪贴板：开启后右键“复制图片”将自动收藏",
     listenStarted: "剪贴板监听已开启，右键“复制图片”后将自动收藏",
-    listenStopped: "已停止监听剪贴板"
+    listenStopped: "已停止监听剪贴板",
+    colTitle: "标题",
+    colPreview: "内容预览",
+    colCategory: "分类",
+    colActions: "操作"
   },
   en: {
     all: "All",
@@ -237,6 +242,7 @@ const DICT = {
     useDataset: "Use this dataset",
     mergeCurrent: "Merge current collection",
     fullPage: "Full page",
+    githubRepo: "Open GitHub repository",
     openFolder: "Open storage folder in Explorer",
     nativeConnect: "Connect local folder (persistent access)",
     nativeStorage: "Native folder storage",
@@ -264,7 +270,11 @@ const DICT = {
     operationFailed: "Operation failed",
     listenClipboard: "Monitor clipboard: when on, right-click Copy image saves automatically",
     listenStarted: "Clipboard monitoring is on. Right-click an image and choose Copy image.",
-    listenStopped: "Clipboard monitoring stopped."
+    listenStopped: "Clipboard monitoring stopped.",
+    colTitle: "Title",
+    colPreview: "Preview",
+    colCategory: "Category",
+    colActions: "Actions"
   }
 };
 
@@ -713,7 +723,8 @@ function createButton(label, className, handler) {
   button.type = "button";
   button.textContent = label;
   if (label === t("edit")) setButtonIcon(button, "edit", { label: t("edit"), size: 16 });
-  if (label === "×") setButtonIcon(button, "close", {
+  if (label === t("copy")) button.prepend(createIcon("copy", 13));
+  if (label === "×") setButtonIcon(button, "trash", {
     label: activeCategory() === "trash" ? t("permanentDelete") : t("delete"), size: 16
   });
   if (className) button.className = className;
@@ -774,7 +785,8 @@ async function loadCardImage(item, container, token) {
 
 function createCard(item, observer, renderToken) {
   const card = document.createElement("article");
-  card.className = "prompt-card" + (selectedIds.has(item.id) ? " selected" : "");
+  card.className = "prompt-card" + (selectedIds.has(item.id) ? " selected" : "") +
+    (activeCategory() === "trash" ? " trash-item" : "");
   card.dataset.id = item.id;
   card.dataset.viewable = batchMode ? "false" : "true";
   if (!batchMode) {
@@ -873,6 +885,148 @@ function createCard(item, observer, renderToken) {
   return card;
 }
 
+function categoryDisplayName(item) {
+  if (item.categoryId === UNCLASSIFIED_ID) return t("uncategorized");
+  return state.data.categories.find((entry) => entry.id === item.categoryId)?.name || t("uncategorized");
+}
+
+function createRowIconButton(iconName, label, handler, extraClass = "") {
+  const button = document.createElement("button");
+  button.type = "button";
+  setButtonIcon(button, iconName, { label, size: 16 });
+  if (extraClass) button.className = extraClass;
+  button.addEventListener("click", (event) => {
+    event.stopPropagation();
+    Promise.resolve(handler()).catch(handleError);
+  });
+  return button;
+}
+
+function wireRowOpen(row, item) {
+  if (batchMode) {
+    row.dataset.viewable = "false";
+    return;
+  }
+  row.tabIndex = 0;
+  row.setAttribute("role", "button");
+  row.setAttribute("aria-label", item.title);
+  const openView = () => openViewDialog(item.id).catch(handleError);
+  row.addEventListener("click", (event) => {
+    if (event.target.closest("button,input,select,textarea,a,label")) return;
+    openView();
+  });
+  row.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter" && event.key !== " ") return;
+    if (event.target !== row) return;
+    event.preventDefault();
+    openView();
+  });
+}
+
+function createListRow(item) {
+  const row = document.createElement("article");
+  row.className = "list-row" + (activeCategory() === "trash" ? " trash-item" : "");
+  row.dataset.id = item.id;
+  row.dataset.viewable = batchMode ? "false" : "true";
+  wireRowOpen(row, item);
+
+  const columns = document.createElement("div");
+  columns.className = "list-columns";
+
+  if (batchMode) {
+    const checkboxCell = document.createElement("div");
+    checkboxCell.className = "row-checkbox-cell";
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.checked = selectedIds.has(item.id);
+    checkbox.setAttribute("aria-label", item.title);
+    checkbox.addEventListener("change", () => {
+      if (checkbox.checked) selectedIds.add(item.id);
+      else selectedIds.delete(item.id);
+      renderBatchBar();
+      row.classList.toggle("selected", checkbox.checked);
+    });
+    checkboxCell.appendChild(checkbox);
+    columns.appendChild(checkboxCell);
+  }
+
+  const titleCell = document.createElement("div");
+  titleCell.className = "cell-title";
+  const titleStrong = document.createElement("strong");
+  titleStrong.textContent = item.title;
+  titleStrong.title = item.title;
+  titleCell.appendChild(titleStrong);
+  columns.appendChild(titleCell);
+
+  const previewCell = document.createElement("div");
+  previewCell.className = "cell-preview";
+  previewCell.textContent = item.prompt || t("noPrompt");
+  previewCell.title = item.prompt || "";
+  columns.appendChild(previewCell);
+
+  const categoryCell = document.createElement("div");
+  categoryCell.className = "cell-category";
+  const pill = document.createElement("span");
+  pill.className = "category-pill" + (item.categoryId === UNCLASSIFIED_ID ? " is-muted" : "");
+  pill.textContent = categoryDisplayName(item);
+  categoryCell.appendChild(pill);
+  columns.appendChild(categoryCell);
+
+  const actionsCell = document.createElement("div");
+  actionsCell.className = "cell-actions row-actions";
+  if (activeCategory() === "trash") {
+    actionsCell.appendChild(createButton(t("restore"), "restore-btn", async () => {
+      await send("item:restore", { id: item.id });
+      showNotice(t("restored"), "success");
+      await reloadState();
+    }));
+    actionsCell.appendChild(createRowIconButton("trash", t("permanentDelete"), async () => {
+      if (!confirm(t("confirmPermanent"))) return;
+      await send("item:deletePermanent", { id: item.id });
+      showNotice(t("deleted"), "success");
+      await reloadState();
+    }, "danger-ghost"));
+  } else {
+    actionsCell.appendChild(createRowIconButton("copy", t("copy"), async () => {
+      await navigator.clipboard.writeText(item.prompt || "");
+      showNotice(t("copied"), "success", 1500);
+    }));
+    actionsCell.appendChild(createRowIconButton("edit", t("edit"), () => openEditDialog(item.id)));
+    actionsCell.appendChild(createRowIconButton("trash", t("delete"), async () => {
+      await send("items:softDelete", { ids: [item.id] });
+      showNotice(t("movedTrash"), "success");
+      await reloadState();
+    }, "danger-ghost"));
+  }
+  columns.appendChild(actionsCell);
+
+  row.appendChild(columns);
+  return row;
+}
+
+function renderListHead() {
+  const head = document.createElement("div");
+  head.className = "list-columns list-head";
+  if (batchMode) {
+    const checkboxHead = document.createElement("span");
+    checkboxHead.className = "row-checkbox-cell";
+    head.appendChild(checkboxHead);
+  }
+  const cells = [
+    ["cell-title", "colTitle"],
+    ["cell-preview", "colPreview"],
+    ["cell-category", "colCategory"],
+    ["cell-actions", "colActions"]
+  ];
+  for (const [className, labelKey] of cells) {
+    const cell = document.createElement("span");
+    cell.className = className;
+    cell.textContent = t(labelKey);
+    head.appendChild(cell);
+  }
+  return head;
+}
+
 function renderItems() {
   if (!state) return;
   const renderToken = ++imageRenderToken;
@@ -880,7 +1034,9 @@ function renderItems() {
   renderedImageIds = new Set();
   const cards = $("#cards");
   cards.replaceChildren();
-  cards.className = "cards " + (state.settings.view === "list" ? "list" : "grid");
+  const isList = state.settings.view === "list";
+  cards.className = "cards " + (isList ? "list" : "grid");
+  cards.classList.toggle("batch", batchMode);
 
   const all = filteredItems();
   if (visibleOffset >= all.length) visibleOffset = 0;
@@ -901,7 +1057,12 @@ function renderItems() {
     }
   }, { rootMargin: "0px" });
 
-  for (const item of page) cards.appendChild(createCard(item, imageObserver, renderToken));
+  if (isList) cards.appendChild(renderListHead());
+  for (const item of page) {
+    cards.appendChild(isList
+      ? createListRow(item)
+      : createCard(item, imageObserver, renderToken));
+  }
 
   const empty = $("#emptyState");
   empty.classList.toggle("hidden", all.length !== 0);
@@ -1498,6 +1659,9 @@ function bindEvents() {
   $("#clearLocalBtn").addEventListener("click", () => clearLocalStorage().catch(handleError));
   $("#openFullBtn").addEventListener("click", () => {
     chrome.tabs.create({ url: chrome.runtime.getURL("dashboard.html?full=1") }).catch(handleError);
+  });
+  $("#brandMark").addEventListener("click", () => {
+    chrome.tabs.create({ url: "https://github.com/baize7815/PromptSave" }).catch(handleError);
   });
   $("#refreshBtn").addEventListener("click", () => runImageCheck(true).catch(handleError));
   $("#batchBtn").addEventListener("click", () => {

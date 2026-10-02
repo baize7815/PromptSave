@@ -53,6 +53,17 @@ const ICONS = Object.freeze({
   chevron: [
     ["path", { d: "M36 18L24 30L12 18", stroke: "currentColor", "stroke-width": "4", "stroke-linecap": "round", "stroke-linejoin": "round" }]
   ],
+  copy: [
+    ["rect", { x: "17", y: "17", width: "24", height: "24", rx: "5", fill: "none", stroke: "currentColor", "stroke-width": "4", "stroke-linecap": "round", "stroke-linejoin": "round" }],
+    ["path", { d: "M31 17V14C31 11.2386 28.7614 9 26 9H14C11.2386 9 9 11.2386 9 14V26C9 28.7614 11.2386 31 14 31H17", fill: "none", stroke: "currentColor", "stroke-width": "4", "stroke-linecap": "round", "stroke-linejoin": "round" }]
+  ],
+  trash: [
+    ["path", { d: "M18 12V9.5C18 8.11929 19.1193 7 20.5 7H27.5C28.8807 7 30 8.11929 30 9.5V12", fill: "none", stroke: "currentColor", "stroke-width": "4", "stroke-linecap": "round", "stroke-linejoin": "round" }],
+    ["path", { d: "M9 12H39", fill: "none", stroke: "currentColor", "stroke-width": "4", "stroke-linecap": "round", "stroke-linejoin": "round" }],
+    ["path", { d: "M11.5 12L13.6 38.4C13.82 41.04 15.2 42.5 17.8 42.5H30.2C32.8 42.5 34.18 41.04 34.4 38.4L36.5 12", fill: "none", stroke: "currentColor", "stroke-width": "4", "stroke-linecap": "round", "stroke-linejoin": "round" }],
+    ["path", { d: "M20 19V35", fill: "none", stroke: "currentColor", "stroke-width": "4", "stroke-linecap": "round" }],
+    ["path", { d: "M28 19V35", fill: "none", stroke: "currentColor", "stroke-width": "4", "stroke-linecap": "round" }]
+  ],
   listen: [
     ["circle", { cx: "24", cy: "24", r: "20", fill: "none", stroke: "currentColor", "stroke-width": "4", "stroke-linecap": "round", "stroke-linejoin": "round" }],
     ["path", { d: "M24 37V44", fill: "none", stroke: "currentColor", "stroke-width": "4", "stroke-linecap": "round", "stroke-linejoin": "round" }],

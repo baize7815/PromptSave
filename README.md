@@ -7,7 +7,7 @@
 <img src="assets/banner.webp" alt="PromptSave — 本地优先的提示词与参考图收藏管理器" width="100%">
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
-[![Version](https://img.shields.io/badge/version-0.3.0-9acd32.svg)](https://github.com/baize7815/PromptSave/releases/tag/v0.3.0)
+[![Version](https://img.shields.io/badge/version-0.4.0-9acd32.svg)](https://github.com/baize7815/PromptSave/releases/tag/v0.4.0)
 [![Manifest V3](https://img.shields.io/badge/Manifest-V3-555555.svg)](https://developer.chrome.com/docs/extensions/develop/mv3)
 [![100% Local](https://img.shields.io/badge/100%25_Local-No_Cloud-2e7d32.svg)](#隐私与安全)
 
@@ -77,7 +77,7 @@ PromptSave 是一个 Chrome / Edge 浏览器扩展（Manifest V3），为 AI 绘
 
 ## 安装
 
-1. 从 [v0.3.0 发行版](https://github.com/baize7815/PromptSave/releases/tag/v0.3.0) 下载 `PromptSave-v0.3.0.zip` 并解压，或克隆本仓库。发行包的根目录就是扩展本体；仓库中的扩展本体位于 **`PromptSave/` 子目录**。
+1. 从 [v0.4.0 发行版](https://github.com/baize7815/PromptSave/releases/tag/v0.4.0) 下载 `PromptSave-v0.4.0.zip` 并解压，或克隆本仓库。发行包的根目录就是扩展本体；仓库中的扩展本体位于 **`PromptSave/` 子目录**。
 2. 打开 `chrome://extensions`（Edge 为 `edge://extensions`），开启右上角的「开发者模式」。
 3. 点击「加载已解压的扩展程序」，选择包含 `manifest.json` 的文件夹（发行包解压目录，或仓库中的 **`PromptSave/`**）。
 4. 建议将 PromptSave 固定到工具栏；点击图标即可打开侧边栏。

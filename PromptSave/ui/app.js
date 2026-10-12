@@ -8,6 +8,7 @@ import {
   saveCandidateDirectoryHandle
 } from "../shared/idb-handle.js";
 import { buildZipBlob, parseZipFile } from "./zip.js";
+import { CLOUD_OBJECT_KEY, uploadCloudZip, downloadCloudZip } from "./qiniu-s3.js";
 import { setButtonIcon, createIcon } from "./icons.js";
 import { pickNativeDirectory, datasetFingerprint } from "../shared/native-directory.js";
 import { ImageCache } from "./image-cache.js";
@@ -50,8 +51,7 @@ const DICT = {
     batchCategory: "修改分类",
     batchDelete: "删除",
     cancel: "取消",
-    loadMore: "下一页",
-    previousPage: "上一页",
+    backToTop: "返回顶部",
     addTitle: "添加提示词",
     editTitle: "编辑条目",
     categoryPlaceholder: "输入或选择分类（可新建）",
@@ -108,6 +108,17 @@ const DICT = {
     importMerge: "导入并合并",
     importReplace: "导入并替换",
     chooseZip: "选择 ZIP",
+    cloudSettingsTitle: "七牛云备份（自行配置）",
+    cloudNotConfigured: "未配置",
+    cloudConfigured: "已填写配置",
+    cloudEndpointLabel: "自己的 S3 存储桶地址（HTTPS）",
+    cloudEndpointHelp: "默认不提供任何私人存储桶地址，输入内容已隐藏。",
+    cloudCredentialsHelp: "地址和 AccessKey 保存在本机；SecretKey 仅保留到浏览器退出。ZIP 固定保存为 promptsave/backup.zip，重复上传直接覆盖。公开发布不要内置私人密钥。",
+    cloudUpload: "上传云端",
+    cloudMerge: "云端导入并合并",
+    cloudReplace: "云端导入并替换",
+    cloudUploadDone: "已上传云端",
+    cloudImportDone: "云端导入完成",
     directoryChoiceHelp: "这个文件夹里已经有 PromptSave 数据。请选择如何处理当前收藏。",
     useDataset: "使用该数据集",
     mergeCurrent: "合并当前收藏",
@@ -180,8 +191,7 @@ const DICT = {
     batchCategory: "Change category",
     batchDelete: "Delete",
     cancel: "Cancel",
-    loadMore: "Next page",
-    previousPage: "Previous page",
+    backToTop: "Back to top",
     addTitle: "Add prompt",
     editTitle: "Edit item",
     categoryPlaceholder: "Type or choose a category",
@@ -238,6 +248,17 @@ const DICT = {
     importMerge: "Import and merge",
     importReplace: "Import and replace",
     chooseZip: "Choose ZIP",
+    cloudSettingsTitle: "Qiniu cloud backup (your own bucket)",
+    cloudNotConfigured: "Not configured",
+    cloudConfigured: "Configuration entered",
+    cloudEndpointLabel: "Your S3 bucket endpoint (HTTPS)",
+    cloudEndpointHelp: "No personal bucket address is included; the field is masked.",
+    cloudCredentialsHelp: "Endpoint and AccessKey are saved on this device; SecretKey lasts only until browser exit. Each upload overwrites promptsave/backup.zip. Never bundle personal keys in a public release.",
+    cloudUpload: "Upload to cloud",
+    cloudMerge: "Cloud import & merge",
+    cloudReplace: "Cloud import & replace",
+    cloudUploadDone: "Uploaded to cloud",
+    cloudImportDone: "Cloud import finished",
     directoryChoiceHelp: "This folder already contains PromptSave data. Choose how to handle the current collection.",
     useDataset: "Use this dataset",
     mergeCurrent: "Merge current collection",
@@ -285,7 +306,6 @@ let reloadToken = 0;
 let reloadPromise = null;
 let reloadForcePending = false;
 let reloadAgain = false;
-let visibleOffset = 0;
 const imageCache = new ImageCache();
 const DIRECTORY_ACTIONS = new Set([
   "item:add", "item:update", "items:softDelete", "item:restore", "item:deletePermanent",
@@ -294,7 +314,13 @@ const DIRECTORY_ACTIONS = new Set([
 ]);
 let batchMode = false;
 let selectedIds = new Set();
-let visibleLimit = RESOURCE_RULES.pageItems;
+// Append cards in small batches, keeping the document as the only scroll container.
+const SCROLL_BATCH_SIZE = 24;
+let visibleLimit = SCROLL_BATCH_SIZE;
+let filteredForRender = [];
+let renderedCount = 0;
+let moreItemsObserver = null;
+let loadBatchScheduled = false;
 let editingId = null;
 let pendingImage = null;
 let currentObjectUrls = new Map();
@@ -331,7 +357,6 @@ function t(key) {
   return DICT[lang][key] || DICT.zh[key] || key;
 }
 
-function pageSize() { return Math.min(RESOURCE_RULES.pageItems, Math.max(1, Number(state?.settings.pageSize) || 8)); }
 
 async function cachedImage(item, valid, priority = false) {
   const image = item.image;
@@ -506,8 +531,8 @@ function applyLanguage() {
   const lang = state && state.settings && state.settings.language === "en" ? "en" : "zh";
   document.documentElement.lang = lang === "en" ? "en" : "zh-CN";
   $("#searchInput").placeholder = t("search");
-  $("#loadMoreBtn").textContent = t("loadMore");
-  $("#previousPageBtn").textContent = t("previousPage");
+  $("#backToTopBtn").title = t("backToTop");
+  $("#backToTopBtn").setAttribute("aria-label", t("backToTop"));
   $("#selectAllText").textContent = t("selectAll");
   $("#batchMoveBtn").textContent = t("batchCategory");
   $("#batchDeleteBtn").textContent = t("batchDelete");
@@ -591,7 +616,7 @@ async function performReloadState(force) {
   if (token !== reloadToken) return;
   savedDirectoryHandle = handle || null;
   state = next;
-  visibleLimit = pageSize();
+  visibleLimit = Math.max(SCROLL_BATCH_SIZE, visibleLimit);
   $("#sortSelect").value = state.settings.sort || "created-desc";
   $("#languageSelect").value = state.settings.language || "zh";
   $("#themeSelect").value = state.settings.theme || "light";
@@ -644,14 +669,14 @@ function clearSelection() {
 }
 
 async function setActiveCategory(categoryId) {
-  visibleOffset = 0;
   clearSelection();
-  visibleLimit = pageSize();
+  visibleLimit = SCROLL_BATCH_SIZE;
   state.settings.activeCategory = categoryId;
   await send("settings:update", { patch: { activeCategory: categoryId } });
   renderCategories();
   renderBatchBar();
   renderItems();
+  scrollResultsToTop();
 }
 
 function makeCategoryButton(id, label, count) {
@@ -1039,8 +1064,9 @@ function renderItems() {
   cards.classList.toggle("batch", batchMode);
 
   const all = filteredItems();
-  if (visibleOffset >= all.length) visibleOffset = 0;
-  const page = all.slice(visibleOffset, visibleOffset + visibleLimit);
+  filteredForRender = all;
+  const page = all.slice(0, visibleLimit);
+  renderedCount = page.length;
   if (imageObserver) imageObserver.disconnect();
   imageObserver = new IntersectionObserver((entries, currentObserver) => {
     for (const entry of entries) {
@@ -1067,8 +1093,8 @@ function renderItems() {
   const empty = $("#emptyState");
   empty.classList.toggle("hidden", all.length !== 0);
   $("#emptyTitle").textContent = activeCategory() === "trash" ? t("emptyTrash") : t("empty");
-  $("#loadMoreBtn").classList.toggle("hidden", visibleOffset + page.length >= all.length);
-  $("#previousPageBtn").classList.toggle("hidden", visibleOffset === 0);
+  updateInfiniteScrollTarget();
+  updateBackToTopButton();
 
   let trashButton = $("#emptyTrashBtn");
   if (activeCategory() === "trash" && all.length) {
@@ -1094,6 +1120,47 @@ function renderItems() {
   }
 
   renderBatchBar();
+}
+
+// A sentinel near the end of the document loads more without a nested scroll bar.
+// Newly revealed cards are appended, so existing image loads, focus and scroll stay intact.
+function updateInfiniteScrollTarget() {
+  const sentinel = $("#scrollSentinel");
+  const hasMore = renderedCount < filteredForRender.length;
+  sentinel.classList.toggle("hidden", !hasMore);
+  if (moreItemsObserver) moreItemsObserver.disconnect();
+  if (hasMore && moreItemsObserver) moreItemsObserver.observe(sentinel);
+}
+
+function appendNextBatch() {
+  if (!state || renderedCount >= filteredForRender.length) return;
+  const end = Math.min(renderedCount + SCROLL_BATCH_SIZE, filteredForRender.length);
+  const fragment = document.createDocumentFragment();
+  const isList = state.settings.view === "list";
+  for (let i = renderedCount; i < end; i += 1) {
+    const item = filteredForRender[i];
+    fragment.appendChild(isList
+      ? createListRow(item)
+      : createCard(item, imageObserver, imageRenderToken));
+  }
+  $("#cards").appendChild(fragment);
+  renderedCount = end;
+  visibleLimit = Math.max(visibleLimit, renderedCount);
+  updateInfiniteScrollTarget();
+}
+
+function updateBackToTopButton() {
+  $("#backToTopBtn").classList.toggle("hidden", window.scrollY < 320);
+}
+
+function scrollResultsToTop() {
+  window.scrollTo({ top: 0, behavior: "instant" });
+  updateBackToTopButton();
+}
+
+function updateStickyHeaderOffset() {
+  const height = Math.ceil($(".topbar").getBoundingClientRect().height);
+  document.documentElement.style.setProperty("--topbar-height", height + "px");
 }
 
 function categoryNameForId(categoryId) {
@@ -1596,27 +1663,90 @@ async function exportZip() {
   } finally { archiveBusy = false; }
 }
 
+async function applyZipFile(file, mode, cloud = false) {
+  const bundle = await parseZipFile(file);
+  if (mode === "replace" && !confirm(t("confirmReplace"))) return;
+  const result = await send("import:apply", { bundle, mode });
+  const added = Number(result && result.added != null ? result.added : result && result.count || 0);
+  const skipped = Number(result && result.skipped || 0);
+  const repaired = Number(result && result.repaired || 0);
+  const importStats = [t("added") + " " + added, t("skipped") + " " + skipped];
+  if (repaired) importStats.push(t("repaired") + " " + repaired);
+  showNotice(t(cloud ? "cloudImportDone" : "importDone") + " · " + importStats.join(" · "), "success");
+  $("#importFileInput").value = "";
+  await reloadState();
+}
+
 async function importZip(file) {
   if (archiveBusy) throw new Error("导入或导出正在进行，请等待完成");
   archiveBusy = true;
   try {
-    // ZIP parsing may outlast transient activation; obtain folder permission before parsing.
+    // Directory permission must be requested before ZIP parsing (user activation).
     await authorizeDirectoryForAction("import:apply");
-    const mode = $("#importMode").value === "replace" ? "replace" : "merge";
-    const bundle = await parseZipFile(file);
-    if (mode === "replace" && !confirm(t("confirmReplace"))) return;
-    const result = await send("import:apply", { bundle, mode });
-    const added = Number(result && result.added != null ? result.added : result && result.count || 0);
-    const skipped = Number(result && result.skipped || 0);
-    const repaired = Number(result && result.repaired || 0);
-    const importStats = [
-      t("added") + " " + added,
-      t("skipped") + " " + skipped
-    ];
-    if (repaired) importStats.push(t("repaired") + " " + repaired);
-    showNotice(t("importDone") + " · " + importStats.join(" · "), "success");
-    $("#importFileInput").value = "";
-    await reloadState();
+    await applyZipFile(file, $("#importMode").value === "replace" ? "replace" : "merge");
+  } finally { archiveBusy = false; }
+}
+
+const CLOUD_CONFIG_KEY = "ps:qiniu:cloudConfig";
+const CLOUD_SECRET_SESSION_KEY = "ps:qiniu:secret";
+
+async function loadCloudFields() {
+  const [local, session] = await Promise.all([
+    chrome.storage.local.get(CLOUD_CONFIG_KEY),
+    chrome.storage.session.get(CLOUD_SECRET_SESSION_KEY)
+  ]);
+  const config = local[CLOUD_CONFIG_KEY] || {};
+  $("#cloudEndpoint").value = config.endpoint || "";
+  $("#cloudAccessKey").value = config.accessKey || "";
+  $("#cloudSecretKey").value = session[CLOUD_SECRET_SESSION_KEY] || "";
+  updateCloudStatus();
+}
+
+function updateCloudStatus() {
+  const filled = Boolean($("#cloudEndpoint").value.trim() && $("#cloudAccessKey").value.trim());
+  $("#cloudConfigStatus").textContent = t(filled ? "cloudConfigured" : "cloudNotConfigured");
+}
+
+async function persistCloudFields() {
+  const config = {
+    endpoint: $("#cloudEndpoint").value.trim(),
+    accessKey: $("#cloudAccessKey").value.trim()
+  };
+  const secretKey = $("#cloudSecretKey").value.trim();
+  await Promise.all([
+    chrome.storage.local.set({ [CLOUD_CONFIG_KEY]: config }),
+    secretKey
+      ? chrome.storage.session.set({ [CLOUD_SECRET_SESSION_KEY]: secretKey })
+      : chrome.storage.session.remove(CLOUD_SECRET_SESSION_KEY)
+  ]);
+  updateCloudStatus();
+  return { ...config, secretKey };
+}
+
+async function cloudUpload() {
+  if (archiveBusy) throw new Error("导入或导出正在进行，请等待完成");
+  archiveBusy = true;
+  try {
+    // Permission prompt must happen while the cloud upload button click is active.
+    await authorizeDirectoryForAction("export:get");
+    const config = await persistCloudFields();
+    const bundle = await send("export:get");
+    const blob = await buildZipBlob(bundle);
+    await uploadCloudZip(config, blob);
+    const missing = bundle.missing?.length || 0;
+    showNotice(t("cloudUploadDone") + " · " + CLOUD_OBJECT_KEY + (missing ? " · " + t("imageMissing") + " " + missing : ""), "success");
+  } finally { archiveBusy = false; }
+}
+
+async function cloudImport(mode) {
+  if (archiveBusy) throw new Error("导入或导出正在进行，请等待完成");
+  archiveBusy = true;
+  try {
+    // Must be requested during the click, before the potentially lengthy download.
+    await authorizeDirectoryForAction("import:apply");
+    const config = await persistCloudFields();
+    const file = await downloadCloudZip(config);
+    await applyZipFile(file, mode, true);
   } finally { archiveBusy = false; }
 }
 
@@ -1683,28 +1813,37 @@ function bindEvents() {
   $("#addBtn").addEventListener("click", () => openAddDialog().catch(handleError));
 
   $("#searchInput").addEventListener("input", () => {
-    visibleOffset = 0;
     clearSelection();
-    visibleLimit = pageSize();
+    visibleLimit = SCROLL_BATCH_SIZE;
     renderItems();
+    scrollResultsToTop();
   });
   $("#sortSelect").addEventListener("change", async () => {
-    visibleOffset = 0;
+    visibleLimit = SCROLL_BATCH_SIZE;
     state.settings.sort = $("#sortSelect").value;
     clearSelection();
     await send("settings:update", { patch: { sort: state.settings.sort } });
     renderItems();
+    scrollResultsToTop();
   });
-  $("#loadMoreBtn").addEventListener("click", () => {
-    visibleOffset += visibleLimit;
-    renderItems();
-    $("#cards").scrollIntoView({ block: "start" });
+  moreItemsObserver = new IntersectionObserver((entries) => {
+    if (!entries.some((entry) => entry.isIntersecting) || loadBatchScheduled) return;
+    loadBatchScheduled = true;
+    requestAnimationFrame(() => {
+      loadBatchScheduled = false;
+      if (document.visibilityState === "visible" &&
+          !$("#scrollSentinel").classList.contains("hidden") &&
+          $("#scrollSentinel").getBoundingClientRect().top <= window.innerHeight + 300) {
+        appendNextBatch();
+      }
+    });
+  }, { root: null, rootMargin: "300px 0px" });
+  $("#backToTopBtn").addEventListener("click", () => {
+    window.scrollTo({ top: 0, behavior: "smooth" });
   });
-  $("#previousPageBtn").addEventListener("click", () => {
-    visibleOffset = Math.max(0, visibleOffset - visibleLimit);
-    renderItems();
-    $("#cards").scrollIntoView({ block: "start" });
-  });
+  window.addEventListener("scroll", updateBackToTopButton, { passive: true });
+  new ResizeObserver(updateStickyHeaderOffset).observe($( ".topbar" ));
+  updateStickyHeaderOffset();
 
   $("#selectAllCheckbox").addEventListener("change", () => {
     const items = filteredItems();
@@ -1866,6 +2005,7 @@ function bindEvents() {
     state.settings.language = $("#languageSelect").value === "en" ? "en" : "zh";
     await send("settings:update", { patch: { language: state.settings.language } });
     applyLanguage();
+    updateCloudStatus();
     renderCategories();
     renderItems();
     renderStorageStatus();
@@ -1880,6 +2020,12 @@ function bindEvents() {
     chrome.tabs.create({ url: chrome.runtime.getURL("debug.html") }).catch(handleError);
   });
 
+  for (const id of ["cloudEndpoint", "cloudAccessKey", "cloudSecretKey"]) {
+    $("#" + id).addEventListener("change", () => persistCloudFields().catch(handleError));
+  }
+  $("#cloudUploadBtn").addEventListener("click", () => cloudUpload().catch(handleError));
+  $("#cloudMergeBtn").addEventListener("click", () => cloudImport("merge").catch(handleError));
+  $("#cloudReplaceBtn").addEventListener("click", () => cloudImport("replace").catch(handleError));
   $("#exportBtn").addEventListener("click", () => exportZip().catch(handleError));
   $("#importFileInput").addEventListener("change", () => {
     const file = $("#importFileInput").files && $("#importFileInput").files[0];
@@ -1911,6 +2057,7 @@ function bindEvents() {
     }
     imageCache.clear();
     if (imageObserver) imageObserver.disconnect();
+    if (moreItemsObserver) moreItemsObserver.disconnect();
     revokeObjectUrls((key) => key.startsWith("card-"));
     for (const node of document.querySelectorAll(".card-image")) node.textContent = t("imageLoading");
   });
@@ -1919,9 +2066,11 @@ function bindEvents() {
     imageCache.clear();
     revokeObjectUrls();
     if (imageObserver) imageObserver.disconnect();
+    if (moreItemsObserver) moreItemsObserver.disconnect();
   });
 }
 
 applyLanguage();
 bindEvents();
+loadCloudFields().catch(handleError);
 reloadState().catch(handleError);

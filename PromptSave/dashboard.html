@@ -59,11 +59,9 @@
         <p id="emptyText" data-i18n="emptyHelp">选中文字或图片后右键收藏，或者点击右上角 ＋。</p>
       </div>
       <div id="cards" class="cards grid"></div>
-      <div class="page-navigation">
-        <button id="previousPageBtn" class="load-more hidden">上一页</button>
-        <button id="loadMoreBtn" class="load-more hidden">下一页</button>
-      </div>
+      <div id="scrollSentinel" class="scroll-sentinel hidden" aria-hidden="true"></div>
     </main>
+    <button id="backToTopBtn" type="button" class="back-to-top hidden" title="返回顶部" aria-label="返回顶部">↑</button>
   </div>
 
   <dialog id="itemDialog" class="modal">
@@ -135,12 +133,38 @@
           <strong id="storageModeLabel">本地存储</strong>
           <p id="directoryStatusText">未设置目录</p>
         </div>
-        <div class="stack-actions">
+        <div class="stack-actions storage-actions">
           <button id="connectNativeBtn" type="button" data-i18n="nativeConnect">连接本地目录（免重复授权）</button>
           <button id="chooseDirectoryBtn" data-i18n="chooseFolder">选择储存文件夹</button>
           <button id="reauthorizeBtn" class="hidden" data-i18n="reauthorize">重新授权</button>
           <button id="switchLocalBtn" class="hidden" data-i18n="switchLocal">迁移并切回本地</button>
         </div>
+      </div>
+      <div class="cloud-settings">
+        <details id="cloudDetails">
+          <summary class="cloud-config-summary">
+            <strong data-i18n="cloudSettingsTitle">七牛云备份（自行配置）</strong>
+            <span id="cloudConfigStatus" class="muted" data-i18n="cloudNotConfigured">未配置</span>
+          </summary>
+          <div class="cloud-config-fields">
+            <div class="cloud-field">
+              <label for="cloudEndpoint" data-i18n="cloudEndpointLabel">自己的 S3 存储桶地址（HTTPS）</label>
+              <input id="cloudEndpoint" type="password" autocomplete="new-password" spellcheck="false" placeholder="https://your-bucket.s3.cn-south-1.qiniucs.com" aria-describedby="cloudEndpointHelp">
+              <span id="cloudEndpointHelp" class="muted" data-i18n="cloudEndpointHelp">地址默认隐藏，发布包不包含任何私人存储桶地址。</span>
+            </div>
+            <div class="cloud-fields-two">
+              <div class="cloud-field">
+                <label for="cloudAccessKey">AccessKey</label>
+                <input id="cloudAccessKey" type="password" autocomplete="new-password" spellcheck="false" placeholder="AccessKey">
+              </div>
+              <div class="cloud-field">
+                <label for="cloudSecretKey">SecretKey</label>
+                <input id="cloudSecretKey" type="password" autocomplete="new-password" spellcheck="false" placeholder="SecretKey">
+              </div>
+            </div>
+            <p data-i18n="cloudCredentialsHelp">每个用户自行配置自己的存储桶。地址和 AccessKey 仅保存在本机；SecretKey 仅保留到浏览器退出。备份固定保存为 promptsave/backup.zip，每次上传会覆盖同一文件。公开发布切勿内置私人存储桶或长期密钥。</p>
+          </div>
+        </details>
       </div>
       <div id="pendingBox" class="pending-box hidden">
         <span id="pendingText"></span>
@@ -188,13 +212,16 @@
     <section class="settings-section">
       <h3 data-i18n="importExportHeading">导入导出</h3>
       <p class="muted" data-i18n="exportNote">ZIP 默认包含回收站；缺失图片保留引用但不会伪造文件。</p>
-      <div class="import-export">
+      <div class="archive-actions" role="group" aria-label="导入导出与云端备份">
         <button id="exportBtn" data-i18n="exportZip">导出 ZIP</button>
         <span class="select-chevron"><select id="importMode" aria-label="导入方式">
           <option value="merge" data-i18n="importMerge">导入并合并</option>
           <option value="replace" data-i18n="importReplace">导入并替换</option>
         </select></span>
         <label class="file-button"><span data-i18n="chooseZip">选择 ZIP</span><input id="importFileInput" type="file" accept=".zip,application/zip"></label>
+        <button id="cloudUploadBtn" type="button" data-i18n="cloudUpload">上传云端</button>
+        <button id="cloudMergeBtn" type="button" data-i18n="cloudMerge">云端导入并合并</button>
+        <button id="cloudReplaceBtn" type="button" data-i18n="cloudReplace">云端导入并替换</button>
       </div>
     </section>
   </dialog>

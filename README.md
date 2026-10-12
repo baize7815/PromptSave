@@ -7,9 +7,9 @@
 <img src="assets/banner.webp" alt="PromptSave — 本地优先的提示词与参考图收藏管理器" width="100%">
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
-[![Version](https://img.shields.io/badge/version-0.4.0-9acd32.svg)](https://github.com/baize7815/PromptSave/releases/tag/v0.4.0)
+[![Version](https://img.shields.io/badge/version-0.5.0-9acd32.svg)](https://github.com/baize7815/PromptSave/releases/tag/v0.5.0)
 [![Manifest V3](https://img.shields.io/badge/Manifest-V3-555555.svg)](https://developer.chrome.com/docs/extensions/develop/mv3)
-[![100% Local](https://img.shields.io/badge/100%25_Local-No_Cloud-2e7d32.svg)](#隐私与安全)
+[![Local First](https://img.shields.io/badge/Local_First-Optional_Cloud_Backup-2e7d32.svg)](#隐私与安全)
 
 </div>
 
@@ -21,8 +21,10 @@ PromptSave 是一个 Chrome / Edge 浏览器扩展（Manifest V3），为 AI 绘
 
 - 在网页上选中文字或图片，**右键一次**即完成收藏，标题自动生成；
 - 在浏览器侧边栏里分类、搜索、批量整理、回收站恢复；
-- 数据始终保存在**本机**——浏览器内部存储、你指定的文件夹，或经可选的 Windows 本地桥接直接落盘；
-- 可随时导出 ZIP 迁移，收藏数据不上传到 PromptSave 的服务器，无需账号或云服务。
+- 收藏数据默认保存在**本机**——浏览器内部存储、你指定的文件夹，或经可选的 Windows 本地桥接直接落盘；
+- 可随时导出 ZIP 迁移，也可自行配置七牛云存储桶，手动上传备份、下载并导入；收藏数据不上传到 PromptSave 的服务器，本地功能无需账号或云服务。
+
+当前版本 **v0.5.0** 新增七牛云 ZIP 备份与恢复、滚动加载和返回顶部。完整版本说明见 [`CHANGELOG.md`](./CHANGELOG.md)。
 
 ## 为什么需要它
 
@@ -41,7 +43,7 @@ PromptSave 是一个 Chrome / Edge 浏览器扩展（Manifest V3），为 AI 绘
 
 - 侧边栏管理，↗ 一键打开为独立标签页；网格 / 列表两种视图。
 - 分类新建、重命名、删除；删除分类不会删除条目，它们自动归入「未分类」。
-- 标题与正文搜索、四种排序、分页浏览。
+- 标题与正文搜索、四种排序；网格与列表均按每批 24 条滚动加载，分类与搜索栏保持可见，向下浏览后可一键返回顶部。
 - 批量模式：按当前筛选结果全选或多选，批量修改分类、批量删除。
 - 回收站软删除，可恢复到原分类；永久删除与清空回收站均有二次确认。
 - 一键复制完整提示词，长文本保留原始换行；支持中文 / English 双语与明亮 / 暗黑主题。
@@ -75,14 +77,25 @@ PromptSave 是一个 Chrome / Edge 浏览器扩展（Manifest V3），为 AI 绘
 - 安全上限：导入 ZIP ≤ 32 MiB、解压后 ≤ 64 MiB、单张图片 ≤ 12 MiB；在改动任何现有数据前，拒绝损坏 ZIP、路径穿越（`../`）、伪装成图片的文件与无 `data.json` 的压缩包。
 - 单库上限 5000 条 / 8 MiB 元数据，达到上限时拒绝继续写入并保留原库。
 
+### 七牛云备份（可选）
+
+- 在「设置 → 存储 → 七牛云备份（自行配置）」中填写自己的 HTTPS S3 存储桶地址、AccessKey 和 SecretKey，然后在「导入导出」中点击「上传云端」。备份包含提示词、图片、分类和回收站，固定写入 `promptsave/backup.zip`，再次上传会覆盖该对象。
+- 「云端导入并合并」会下载备份并沿用本地 ZIP 的去重逻辑；「云端导入并替换」需确认，替换前保留恢复副本。云端 ZIP 上传和下载上限均为 32 MiB，导入沿用现有格式与内容校验。
+- 使用七牛 S3 协议的 HTTPS PUT/GET，由扩展在本机计算 AWS Signature V4 签名，无需额外服务器。每次上传或下载均由用户手动触发；此功能不提供自动同步或多设备冲突处理。
+- 发布包没有预设私人存储桶或密钥。地址与 AccessKey 保存在本设备，SecretKey 仅保留在浏览器会话中，完全退出浏览器后需重新输入。建议使用私有存储空间，并保留独立的本地 ZIP 备份。
+
+配置格式、凭证说明和排错见 [`PromptSave/CLOUD_BACKUP.md`](./PromptSave/CLOUD_BACKUP.md)。
+
 ## 安装
 
-1. 从 [v0.4.0 发行版](https://github.com/baize7815/PromptSave/releases/tag/v0.4.0) 下载 `PromptSave-v0.4.0.zip` 并解压，或克隆本仓库。发行包的根目录就是扩展本体；仓库中的扩展本体位于 **`PromptSave/` 子目录**。
+1. 从 [v0.5.0 发行版](https://github.com/baize7815/PromptSave/releases/tag/v0.5.0) 下载 `PromptSave-v0.5.0.zip` 并解压，或克隆本仓库。发行包的根目录就是扩展本体；仓库中的扩展本体位于 **`PromptSave/` 子目录**。
 2. 打开 `chrome://extensions`（Edge 为 `edge://extensions`），开启右上角的「开发者模式」。
 3. 点击「加载已解压的扩展程序」，选择包含 `manifest.json` 的文件夹（发行包解压目录，或仓库中的 **`PromptSave/`**）。
 4. 建议将 PromptSave 固定到工具栏；点击图标即可打开侧边栏。
 
 无需构建步骤、无需 npm 安装：扩展是纯原生 ES Module，唯一的第三方库 JSZip 已随仓库本地打包。
+
+升级已加载的扩展时，先导出本地 ZIP 备份，再将新版文件覆盖到原加载目录并在扩展管理页点击「重新加载」。使用同一个加载目录可保留原扩展身份；不要先卸载旧扩展。关闭旧侧栏和独立标签页后重新打开，确认版本为 `0.5.0`。七牛云是新增的可选功能，升级后需自行配置。
 
 ### Windows 本地桥接（可选）
 
@@ -102,8 +115,8 @@ PromptSave 是一个 Chrome / Edge 浏览器扩展（Manifest V3），为 AI 绘
 
 ## 隐私与安全
 
-- **本地保存**：提示词、参考图和分类保存在本机，不上传至 PromptSave 服务器；扩展不收集遥测，也无需账号。右键收藏网页图片时，扩展会向该图片的源地址请求图片；为支持需登录的站点，请求可能携带该站点的登录凭据。手动导入本地图片和粘贴图片不需要此网络请求。内容安全策略为 `script-src 'self'`，不加载远程脚本。JSZip 在本地打包，仅在使用 ZIP 导入导出时加载（详见 [`THIRD_PARTY_NOTICES.md`](./THIRD_PARTY_NOTICES.md)）。
-- **权限用途**：存储、右键菜单、侧边栏、剪贴板、离屏文档与当前标签页权限用于收藏功能；扩展请求所有 `http/https` 站点的主机权限，以便读取用户右键选中的网页图片，安装时统一确认；`file://` 为可选权限，默认不授予。
+- **本地优先**：提示词、参考图和分类默认保存在本机，不上传至 PromptSave 服务器；扩展不收集遥测，本地功能无需账号。自行配置并点击「上传云端」时，完整 ZIP 备份会发送到你指定的七牛云存储桶；云端导入从同一对象下载，扩展不会自动上传收藏。SecretKey 仅存于 `chrome.storage.session`，签名请求不发送 SecretKey 原文；这不构成长期密钥保险箱，也不加密备份 ZIP，请在可信设备上使用私有存储空间。右键收藏网页图片时，扩展会向该图片的源地址请求图片；为支持需登录的站点，请求可能携带该站点的登录凭据。手动导入本地图片和粘贴图片不需要此网络请求。内容安全策略为 `script-src 'self'`，不加载远程脚本。JSZip 在本地打包，仅在使用 ZIP 导入导出时加载（详见 [`THIRD_PARTY_NOTICES.md`](./THIRD_PARTY_NOTICES.md)）。
+- **权限用途**：存储、右键菜单、侧边栏、剪贴板、离屏文档与当前标签页权限用于收藏功能；扩展请求所有 `http/https` 站点的主机权限，以便读取用户右键选中的网页图片，并访问用户配置的七牛 S3 HTTPS 端点，安装时统一确认；`file://` 为可选权限，默认不授予。本版没有新增扩展权限。
 - **剪贴板监听默认关闭且仅存活于当前会话**，浏览器完全退出后不可能保持监听；后台没有常驻心跳或全站内容脚本，原生桥接连接闲置约 5 秒即断开。
 - **本地桥接的安全边界**：宿主程序不联网、不执行任意 shell 命令，只读写授权目录内的 `data.json`、`recovery.json` 与 `images/<id>.jpg`；拒绝路径穿越、符号链接、目录联接与 Windows 设备文件名；所有写入经临时文件原子替换；扩展只保存目录标识，网页无法传入任意绝对路径。
 - **脱敏调试日志**：调试页可临时开启日志，事件只包含操作名、错误码与耗时，不包含提示词、图片内容、网址、签名 URL 或目录路径，关闭时即可清除。
@@ -115,11 +128,13 @@ PromptSave 是一个 Chrome / Edge 浏览器扩展（Manifest V3），为 AI 绘
 ├── PromptSave/                  # 扩展本体（在浏览器中加载此文件夹）
 │   ├── manifest.json            # Manifest V3 清单
 │   ├── dashboard.html           # 侧边栏页面，也可作为独立标签页
+│   ├── CLOUD_BACKUP.md          # 七牛云备份配置、限制与排错
 │   ├── debug.html               # 调试日志页
 │   ├── background/
 │   │   └── service-worker.js    # 后台：收藏流程、任务队列、存储调度
 │   ├── offscreen/               # 剪贴板图片监听（离屏文档）
 │   ├── ui/                      # 界面逻辑、样式、图标与 ZIP 导出
+│   │   └── qiniu-s3.js          # 七牛 S3 ZIP 上传、下载与签名
 │   ├── shared/                  # 数据模型、图片压缩、校验与原生连接
 │   ├── storage/                 # 内部存储 / 文件夹两种存储后端
 │   ├── native/                  # Windows 原生消息宿主（Python，可选）
@@ -128,6 +143,7 @@ PromptSave 是一个 Chrome / Edge 浏览器扩展（Manifest V3），为 AI 绘
 ├── tests/                       # node:test 单元测试
 ├── assets/                      # README 视觉资产
 ├── SMOKE_TEST.md                # Chrome / Edge 实机验收清单
+├── CHANGELOG.md                 # 版本更新说明
 ├── THIRD_PARTY_NOTICES.md       # 第三方许可与设计参考说明
 └── package.json
 ```

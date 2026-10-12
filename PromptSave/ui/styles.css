@@ -1292,5 +1292,56 @@ select.select-with-chevron {
   }
 }
 
-.page-navigation { display: flex; justify-content: center; gap: 10px; }
-.page-navigation .load-more { width: auto; min-width: 96px; margin: 14px 0 4px; }
+/* Keep the filters visible beneath the toolbar; scroll only the document. */
+.filters {
+  position: sticky;
+  top: var(--topbar-height, 64px);
+  z-index: 19;
+  padding: 4px 0 9px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--line);
+}
+.scroll-sentinel { height: 2px; margin: 6px 0 12px; pointer-events: none; }
+.back-to-top {
+  position: fixed;
+  right: 22px;
+  bottom: 22px;
+  z-index: 18;
+  width: 39px;
+  height: 39px;
+  border-radius: 50%;
+  border-color: var(--line-strong);
+  background: var(--panel);
+  box-shadow: var(--shadow);
+  color: var(--accent);
+  font-size: 23px;
+  line-height: 1;
+}
+.back-to-top:hover { border-color: var(--accent); background: var(--accent-soft); }
+
+/* Cloud setup is collapsed by default and never shows a private endpoint in the header. */
+.storage-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); width: min(330px, 64%); }
+.storage-actions button { white-space: normal; }
+.cloud-settings { margin: 12px 0 10px; padding: 10px; border: 1px solid var(--line); border-radius: 9px; background: var(--panel-soft); }
+.cloud-config-summary { display: flex; align-items: center; justify-content: space-between; gap: 9px; cursor: pointer; font-size: 12px; }
+.cloud-config-summary strong { margin-right: auto; }
+.cloud-config-summary span { font-size: 11px; }
+.cloud-config-fields { margin-top: 10px; }
+.cloud-field { display: grid; min-width: 0; gap: 4px; font-size: 11px; }
+.cloud-field input { min-width: 0; width: 100%; padding: 7px 9px; font-size: 12px; }
+.cloud-field > .muted { font-size: 11px; }
+.cloud-fields-two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 8px; }
+.cloud-settings p { margin-top: 9px; }
+/* Force all six ZIP actions onto one horizontal line. Narrow viewports scroll, never wrap. */
+.archive-actions { display: flex; flex-wrap: nowrap; align-items: center; gap: 5px; margin-top: 9px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: thin; }
+.archive-actions > * { flex: 0 0 auto; white-space: nowrap; }
+.archive-actions button,
+.archive-actions select { padding: 6px 7px; font-size: 11px; }
+.archive-actions .file-button { padding: 6px 7px; font-size: 11px; }
+.archive-actions .select-chevron > select { padding-right: 26px; }
+.archive-actions .select-chevron::after { right: 6px; width: 12px; height: 12px; }
+@media (max-width: 580px) {
+  .setting-line { flex-wrap: wrap; }
+  .storage-actions { width: 100%; }
+  .cloud-fields-two { grid-template-columns: 1fr; }
+}
